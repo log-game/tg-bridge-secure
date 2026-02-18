@@ -1,21 +1,17 @@
 import jwt from "jsonwebtoken";
+import { createClient } from "@supabase/supabase-js";
 
-const JWT_SECRET = "a9s8d7f6a5s4d3f2g1h0j9k8l7z6x5c4v3b2n1m";
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_KEY
+);
 
-let messages = global.messages || [];
-global.messages = messages;
+const JWT_SECRET = process.env.JWT_SECRET;
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).end();
 
-  const cookie = req.headers.cookie;
-  if (!cookie) return res.status(401).end();
-
-  const token = cookie
-    .split(";")
-    .find(c => c.trim().startsWith("token="))
-    ?.split("=")[1];
-
+  const token = req.headers.cookie?.split("token=")[1];
   if (!token) return res.status(401).end();
 
   let user;
@@ -26,19 +22,20 @@ export default async function handler(req, res) {
   }
 
   const { text } = req.body;
-
   const formatted = `От: @${user.username}\n${text}`;
 
-  await fetch(`https://api.telegram.org/bot8550352315:AAGSuiM_dm9ycPD2RmrxZjYxqhXL8U8B2A8/sendMessage`, {
+  // Отправляем в Telegram
+  await fetch(`https://api.telegram.org/bot${process.env.BOT_TOKEN}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      chat_id: "-1002168026878",
+      chat_id: process.env.GROUP_ID,
       text: formatted
     })
   });
 
-  messages.push({
+  // Сохраняем в Supabase
+  await supabase.from("messages").insert({
     id: Date.now(),
     text,
     telegram_id: user.telegram_id,
