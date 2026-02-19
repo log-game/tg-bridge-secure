@@ -1,43 +1,61 @@
 import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_KEY
-);
+const BOT_TOKEN = process.env.BOT_TOKEN;
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE;
 
-let codes = global.codes || {};
-global.codes = codes;
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE);
+
+async function sendMessage(chat_id, text) {
+  await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      chat_id,
+      text
+    })
+  });
+}
+
+function generateCode() {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
 
 export default async function handler(req, res) {
-  const body = req.body;
+  const update = req.body;
 
-  // Команда /login от бота — выдаём код
-  if (body.message?.text === "/login") {
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-
-    codes[code] = {
-      telegram_id: body.message.from.id,
-      username: body.message.from.username,
-      photo_url: null
-    };
-
-    await fetch(`https://api.telegram.org/bot${process.env.BOT_TOKEN}/sendMessage`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        chat_id: body.message.chat.id,
-        text: `Ваш код для входа: ${code}`
-      })
-    });
+  if (!update.message) {
+    return res.status(200).end();
   }
 
-  // Сохраняем все текстовые сообщения из Telegram
-  if (body.message?.text) {
+  const message = update.message;
+  const text = message.text;
+  const telegram_id = message.from.id;
+  const username = message.from.username;
+
+  // ===== /login =====
+  if (text === "/login") {
+    const code = generateCode();
+
+    await supabase.from("login_codes").insert({
+      telegram_id,
+      code
+    });
+
+    await sendMessage(
+      message.chat.id,
+      `Ваш код входа: ${code}\nВведите его на сайте.`
+    );
+
+    return res.status(200).end();
+  }
+
+  // ===== обычные сообщения =====
+  if (text) {
     await supabase.from("messages").insert({
-      id: Date.now(),
-      text: body.message.text,
-      telegram_id: body.message.from.id,
-      username: body.message.from.username,
+      telegram_id,
+      username,
+      text,
       source: "telegram"
     });
   }
