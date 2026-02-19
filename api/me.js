@@ -3,16 +3,19 @@ import jwt from "jsonwebtoken";
 const JWT_SECRET = process.env.JWT_SECRET;
 
 export default function handler(req, res) {
-  const cookie = req.headers.cookie;
-  if (!cookie) return res.status(401).end();
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+  res.setHeader("Access-Control-Allow-Origin", "http://concepts-oe.tilda.ws");
 
-  const token = cookie.split("token=")[1];
-  if (!token) return res.status(401).end();
+  const token = req.cookies?.token;
+
+  if (!token) {
+    return res.status(401).json({ error: "No token" });
+  }
 
   try {
     const user = jwt.verify(token, JWT_SECRET);
-    res.status(200).json(user);
-  } catch {
-    res.status(401).end();
+    return res.status(200).json(user);
+  } catch (err) {
+    return res.status(401).json({ error: "Invalid token" });
   }
 }
