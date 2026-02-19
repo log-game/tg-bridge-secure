@@ -6,11 +6,22 @@ const JWT_SECRET = process.env.JWT_SECRET;
 
 export default function handler(req, res) {
   try {
+    // --- CORS ---
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+    res.setHeader(
+      "Access-Control-Allow-Origin",
+      "http://concepts-oe.tilda.ws"
+    );
+
+    // --- Проверка данных Telegram ---
     const data = { ...req.query };
     const checkHash = data.hash;
     delete data.hash;
 
-    const secret = crypto.createHash("sha256").update(BOT_TOKEN).digest();
+    const secret = crypto
+      .createHash("sha256")
+      .update(BOT_TOKEN)
+      .digest();
 
     const sorted = Object.keys(data)
       .sort()
@@ -26,6 +37,7 @@ export default function handler(req, res) {
       return res.status(403).send("Unauthorized");
     }
 
+    // --- Создание JWT ---
     const token = jwt.sign(
       {
         telegram_id: data.id,
@@ -36,17 +48,17 @@ export default function handler(req, res) {
       { expiresIn: "7d" }
     );
 
-    // КРОСС-ДОМЕННАЯ COOKIE
+    // --- Установка cookie ---
     res.setHeader(
       "Set-Cookie",
       `token=${token}; Path=/; HttpOnly; SameSite=None; Secure`
     );
 
-    // Редирект на страницу Tilda
+    // --- Редирект на страницу чата ---
     res.redirect("http://concepts-oe.tilda.ws/koechat");
 
   } catch (err) {
-    console.error(err);
+    console.error("Login error:", err);
     res.status(500).send("Server error");
   }
 }
