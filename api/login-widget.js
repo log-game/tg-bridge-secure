@@ -40,5 +40,6 @@ export default function handler(req, res) {
     `token=${token}; Path=/; HttpOnly; SameSite=Lax`
   );
 
-  res.redirect("/");
+  // Редирект на страницу чата на Tilda
+  res.redirect("http://concepts-oe.tilda.ws/koechat");
 }
