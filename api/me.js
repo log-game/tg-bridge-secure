@@ -1,4 +1,5 @@
 import jwt from "jsonwebtoken";
+
 const JWT_SECRET = process.env.JWT_SECRET;
 
 export default function handler(req, res) {
@@ -11,7 +12,11 @@ export default function handler(req, res) {
   const cookie = req.headers.cookie;
   if (!cookie) return res.status(401).end();
 
-  const token = cookie.split(";").find(c => c.trim().startsWith("token="))?.split("=")[1];
+  const token = cookie
+    .split(";")
+    .find(c => c.trim().startsWith("token="))
+    ?.split("=")[1];
+
   if (!token) return res.status(401).end();
 
   try {
