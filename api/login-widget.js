@@ -5,41 +5,48 @@ const BOT_TOKEN = process.env.BOT_TOKEN;
 const JWT_SECRET = process.env.JWT_SECRET;
 
 export default function handler(req, res) {
-  const data = { ...req.query };
-  const checkHash = data.hash;
-  delete data.hash;
+  try {
+    const data = { ...req.query };
+    const checkHash = data.hash;
+    delete data.hash;
 
-  const secret = crypto.createHash("sha256").update(BOT_TOKEN).digest();
+    const secret = crypto.createHash("sha256").update(BOT_TOKEN).digest();
 
-  const sorted = Object.keys(data)
-    .sort()
-    .map(key => `${key}=${data[key]}`)
-    .join("\n");
+    const sorted = Object.keys(data)
+      .sort()
+      .map(key => `${key}=${data[key]}`)
+      .join("\n");
 
-  const hmac = crypto
-    .createHmac("sha256", secret)
-    .update(sorted)
-    .digest("hex");
+    const hmac = crypto
+      .createHmac("sha256", secret)
+      .update(sorted)
+      .digest("hex");
 
-  if (hmac !== checkHash) {
-    return res.status(403).send("Unauthorized");
+    if (hmac !== checkHash) {
+      return res.status(403).send("Unauthorized");
+    }
+
+    const token = jwt.sign(
+      {
+        telegram_id: data.id,
+        username: data.username,
+        photo_url: data.photo_url
+      },
+      JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    // КРОСС-ДОМЕННАЯ COOKIE
+    res.setHeader(
+      "Set-Cookie",
+      `token=${token}; Path=/; HttpOnly; SameSite=None; Secure`
+    );
+
+    // Редирект на страницу Tilda
+    res.redirect("http://concepts-oe.tilda.ws/koechat");
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Server error");
   }
-
-  const token = jwt.sign(
-    {
-      telegram_id: data.id,
-      username: data.username,
-      photo_url: data.photo_url
-    },
-    JWT_SECRET,
-    { expiresIn: "7d" }
-  );
-
-  res.setHeader(
-    "Set-Cookie",
-    `token=${token}; Path=/; HttpOnly; SameSite=Lax`
-  );
-
-  // Редирект на страницу чата на Tilda
-  res.redirect("http://concepts-oe.tilda.ws/koechat");
 }
