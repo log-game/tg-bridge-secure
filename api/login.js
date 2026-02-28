@@ -1,14 +1,14 @@
 export default async function handler(req, res) {
-  const user = req.body;
+  const data = req.query; // ⚠️ берём из query, а не body
 
-  if (!user || !user.id) {
+  if (!data || !data.id) {
     return res.status(400).json({ error: "Invalid data" });
   }
 
   const userData = {
-    telegram_id: user.id,
-    username: user.username || user.first_name,
-    first_name: user.first_name
+    telegram_id: data.id,
+    username: data.username || data.first_name,
+    first_name: data.first_name
   };
 
   res.setHeader(
@@ -16,5 +16,10 @@ export default async function handler(req, res) {
     `user=${encodeURIComponent(JSON.stringify(userData))}; Path=/; HttpOnly; Secure; SameSite=Lax`
   );
 
-  res.status(200).json({ ok: true });
+  // редирект обратно на сайт
+  res.writeHead(302, {
+    Location: "https://твоя-tilda-страница.ru"
+  });
+
+  res.end();
 }
