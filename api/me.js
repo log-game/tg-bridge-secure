@@ -1,28 +1,38 @@
-import jwt from "jsonwebtoken";
+const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const CHAT_ID = "-1002168026878"; // ID группы
 
-const JWT_SECRET = process.env.JWT_SECRET;
-
-export default function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "https://concepts-oe.tilda.ws");
-  res.setHeader("Access-Control-Allow-Credentials", "true");
-  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  if (req.method === "OPTIONS") return res.status(200).end();
-
-  const cookie = req.headers.cookie;
-  if (!cookie) return res.status(401).end();
-
-  const token = cookie
-    .split(";")
-    .find(c => c.trim().startsWith("token="))
-    ?.split("=")[1];
-
-  if (!token) return res.status(401).end();
-
-  try {
-    const user = jwt.verify(token, JWT_SECRET);
-    res.status(200).json(user);
-  } catch {
-    res.status(401).end();
+export default async function handler(req, res) {
+  if (!req.cookies.user) {
+    return res.status(401).json({ error: "Not authorized" });
   }
-}
+
+  const user = JSON.parse(req.cookies.user);
+
+  const tgRes = await fetch(
+    `https://api.telegram.org/bot${BOT_TOKEN}/getChatMember?chat_id=${CHAT_ID}&user_id=${user.telegram_id}`
+  );
+
+  const tgData = await tgRes.json();
+
+  if (!tgData.ok) {
+    return res.status(500).json({ error: "Telegram error" });
+  }
+
+  const status = tgData.result.status;
+
+  if (status === "kicked") {
+    return res.status(403).json({ error: "Banned in group" });
+  }
+
+  if (status === "restricted" && tgData.result.can_send_messages === false) {
+    return res.status(200).json({
+      ...user,
+      muted: true
+    });
+  }
+
+  return res.status(200).json({
+    ...user,
+    muted: false
+  });
+      }
