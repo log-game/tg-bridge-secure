@@ -1,24 +1,22 @@
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE
-);
+import { supabase } from "./_supabase.js";
 
 export default async function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "https://concepts-oe.tilda.ws");
-  res.setHeader("Access-Control-Allow-Credentials", "true");
-  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  if (req.method === "OPTIONS") return res.status(200).end();
+  if (!req.cookies.user) {
+    return res.status(401).json({ error: "Not authorized" });
+  }
+
+  // авто очистка (оставляем 500)
+  await supabase.rpc("clean_old_messages");
 
   const { data, error } = await supabase
     .from("messages")
     .select("*")
     .order("created_at", { ascending: true })
-    .limit(100);
+    .limit(500);
 
-  if (error) return res.status(500).json({ error });
+  if (error) {
+    return res.status(500).json({ error });
+  }
 
   res.status(200).json(data);
 }
